@@ -1,7 +1,7 @@
 version: '3'
 services:
   mtab:
-    image: weiruchenai1/mtab:latest
+    image: ghcr.io/weiruchenai1/mtab:latest
     container_name: mtab-unlimited
     ports:
       - "9200:80"
