@@ -1,0 +1,18 @@
+{
+  "name": "mtab-dev",
+  "version": "1.0.0",
+  "description": "mTab Development Environment",
+  "scripts": {
+    "dev": "docker-compose -f .devcontainer/docker-compose.dev.yml up -d",
+    "stop": "docker-compose -f .devcontainer/docker-compose.dev.yml down",
+    "logs": "docker-compose -f .devcontainer/docker-compose.dev.yml logs -f",
+    "shell": "docker-compose -f .devcontainer/docker-compose.dev.yml exec app bash",
+    "mysql": "docker-compose -f .devcontainer/docker-compose.dev.yml exec mysql mysql -u root -proot mtab_dev",
+    "composer": "docker-compose -f .devcontainer/docker-compose.dev.yml exec app composer",
+    "clear-cache": "docker-compose -f .devcontainer/docker-compose.dev.yml exec app rm -rf runtime/cache/*"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.0",
+    "tailwindcss": "^3.0.0"
+  }
+}

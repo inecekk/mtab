@@ -137,18 +137,14 @@ class Admin extends BaseController
     function xyCheck(): \think\response\Json
     {
         $this->getAdmin();
-        if (is_file(root_path() . 'xy.pem')) {
-            if (file_get_contents(root_path() . 'xy.pem') === file_get_contents(config_path() . 'LICENSE.html')) {
-                return $this->success("ok");
-            }
-        }
-        return $this->error("未找到证书文件", ['license' => file_get_contents(config_path() . 'LICENSE.html')]);
+        // 移除授权验证，直接返回成功
+        return $this->success("ok");
     }
 
     function xy(): \think\response\Json
     {
         $this->getAdmin();
-        file_put_contents(root_path() . "xy.pem", file_get_contents(config_path() . 'LICENSE.html'));
+        // 移除授权验证，直接返回成功
         return $this->success("ok");
     }
 

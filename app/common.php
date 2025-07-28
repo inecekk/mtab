@@ -59,13 +59,7 @@ function plugins_path($path = ''): string
 
 function is_demo_mode($is_exit = false)
 {
-    if (env('demo_mode')) {
-        if ($is_exit) {
-            json(["msg" => "演示模式，部分功能受限,禁止更新或删除！", "code" => 0])->send();
-            exit();
-        }
-        return true;
-    }
+    // 禁用演示模式限制，允许所有操作
     return false;
 }
 

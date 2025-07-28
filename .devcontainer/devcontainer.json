@@ -1,0 +1,27 @@
+{
+  "name": "mTab Development Environment",
+  "dockerComposeFile": "docker-compose.dev.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client",
+        "xdebug.php-debug", 
+        "ms-vscode.vscode-json",
+        "bradlc.vscode-tailwindcss",
+        "formulahendry.auto-rename-tag"
+      ],
+      "settings": {
+        "php.validate.executablePath": "/usr/local/bin/php",
+        "intelephense.files.maxSize": 5000000
+      }
+    }
+  },
+  
+  "forwardPorts": [80, 3306, 6379],
+  "postCreateCommand": "composer install && chmod -R 777 runtime",
+  "remoteUser": "www-data"
+}

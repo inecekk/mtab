@@ -68,9 +68,8 @@ class BaseController
     // 初始化
     protected function initialize()
     {
-        if ($this->systemSetting('authCode', env('authCode', false), true)) {
-            $this->auth = true;
-        }
+        // 强制启用授权状态，移除授权码验证
+        $this->auth = true;
         if ($this->systemSetting("app_debug", '0') === '1') {
             $this->app->debug(true);
             Config::set([

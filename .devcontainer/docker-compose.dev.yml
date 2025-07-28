@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile.dev
+    volumes:
+      - ..:/workspace:cached
+      - /workspace/vendor
+      - /workspace/runtime
+    ports:
+      - "8080:80"
+    environment:
+      - PHP_IDE_CONFIG=serverName=mtab-dev
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - mtab-dev
+      
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mtab_dev
+      MYSQL_USER: mtab
+      MYSQL_PASSWORD: mtab123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../install.sql:/docker-entrypoint-initdb.d/1-install.sql
+      - ../defaultData.sql:/docker-entrypoint-initdb.d/2-defaultData.sql
+    networks:
+      - mtab-dev
+      
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - mtab-dev
+      
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: root
+    ports:
+      - "8081:80"
+    depends_on:
+      - mysql
+    networks:
+      - mtab-dev
+
+volumes:
+  mysql_data:
+
+networks:
+  mtab-dev:
+    driver: bridge

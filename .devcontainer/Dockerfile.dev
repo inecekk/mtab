@@ -1,0 +1,56 @@
+FROM php:8.1-apache
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    zip \
+    unzip \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# 安装 PHP 扩展
+RUN docker-php-ext-install \
+    pdo_mysql \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd \
+    zip \
+    mysqli
+
+# 安装 Redis 扩展
+RUN pecl install redis && docker-php-ext-enable redis
+
+# 安装 Xdebug (开发调试用)
+RUN pecl install xdebug && docker-php-ext-enable xdebug
+
+# 配置 Xdebug
+RUN echo "xdebug.mode=debug,develop" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+# 安装 Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# 配置 Apache
+RUN a2enmod rewrite
+COPY .devcontainer/apache.conf /etc/apache2/sites-available/000-default.conf
+
+# 设置工作目录
+WORKDIR /workspace
+
+# 设置权限
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
+
+# 开发环境特定配置
+ENV APP_DEBUG=true
+ENV PHP_IDE_CONFIG="serverName=mtab-dev"

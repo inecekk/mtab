@@ -29,11 +29,8 @@ class Index extends BaseController
 
     private function initAuth()
     {
-        $authCode = $this->systemSetting('authCode', '', true);
-        if (strlen($authCode) == 0) {
-            $authCode = env('authCode', '');
-        }
-        $this->authCode = $authCode;
+        // 强制设置授权码为有效状态，跳过在线验证
+        $this->authCode = 'LOCAL_AUTH_ENABLED';
         $this->authService = $this->systemSetting('authServer', 'https://auth.mtab.cc', true);
     }
 
@@ -41,53 +38,8 @@ class Index extends BaseController
     function updateApp($n = 0): \think\response\Json
     {
         $this->getAdmin();
-        $this->initAuth();
-        $result = \Axios::http()->post($this->authService . '/getUpGrade', [
-            'timeout' => 10,
-            'form_params' => [
-                'authorization_code' => $this->authCode,
-                'version_code' => app_version_code,
-            ]
-        ]);
-        if ($result->getStatusCode() == 200) {
-            $json = json_decode($result->getBody()->getContents(), true);
-            if ($json['code'] === 1) {
-                $upgradePhp = runtime_path() . 'update.php';
-                $f = "";
-                $upGrade = null;
-                if (!empty($json['info']['update_php'])) {
-                    try { //用远程脚本更新,一般用不到，除非上一个版本发生一些问题需要额外脚本处理
-                        $f = file_get_contents($json['info']['update_php']);
-                        file_put_contents(runtime_path() . 'update.php', $f);
-                        require_once $upgradePhp;
-                        $upGrade = new \Upgrade();
-                    } catch (\Exception $e) {
-                        return $this->error($e->getMessage());
-                    }
-                }
-                if ($upGrade === null) {
-                    $upGrade = new \Upgrade2();
-                }
-                if (!empty($json['info']['update_zip'])) {
-                    $upGrade->update_download_url = $json['info']['update_zip'];
-                }
-                if (!empty($json['info']['update_sql'])) {
-                    $upGrade->update_sql_url = $json['info']['update_sql'];
-                }
-                try {
-                    $upGrade->run(); //启动任务
-                    if (file_exists($upgradePhp)) {
-                        unlink($upgradePhp);
-                    }
-                    return $this->success('更新完毕');
-                } catch (\Exception $e) {
-                    return $this->error($e->getMessage());
-                }
-            } else {
-                return $this->error($json['msg']);
-            }
-        }
-        return $this->error("没有更新的版本");
+        // 禁用在线更新功能
+        return $this->error("在线更新功能已禁用，请手动下载最新版本更新");
     }
 
     function authorization(): \think\response\Json
@@ -98,57 +50,22 @@ class Index extends BaseController
         $info['version'] = app_version;
         $info['version_code'] = app_version_code;
         $info['php_version'] = phpversion();
-        try {
-            $result = \Axios::http()->post($this->authService . '/checkAuth', [
-                'timeout' => 10,
-                'form_params' => [
-                    'authorization_code' => $this->authCode,
-                    'version_code' => app_version_code,
-                    'domain' => request()->domain()
-                ]
-            ]);
-            if ($result->getStatusCode() == 200) {
-                $jsonStr = $result->getBody()->getContents();
-                $json = json_decode($jsonStr, true);
-                $info['remote'] = $json;
-                if (!isset($json['auth'])) {
-                    $f = SettingModel::where('keys', 'authCode')->find();
-                    if ($f) {
-                        $f->value = '';
-                        $f->save();
-                    }
-                    Cache::delete('webConfig');
-                }
-                return $this->success($info);
-            }
-        } catch (\Exception $e) {
-        }
+        // 模拟授权验证成功，跳过在线验证
         $info['remote'] = [
-            "auth" => (bool)$this->authCode
+            "auth" => true,
+            "status" => "active",
+            "message" => "本地授权已启用"
         ];
-        return $this->success('授权服务器连接失败', $info);
+        return $this->success($info);
     }
 
 
     function cardList(): \think\response\Json
     {
         $this->getAdmin();
-        $this->initAuth();
-        try {
-            $result = \Axios::http()->post($this->authService . '/card', [
-                'timeout' => 15,
-                'form_params' => [
-                    'authorization_code' => $this->authCode
-                ]
-            ]);
-            $json = $result->getBody()->getContents();
-            $json = json_decode($json, true);
-            if ($json['code'] === 1) {
-                return $this->success('ok', $json['data']);
-            }
-        } catch (\Exception $e) {
-        }
-        return $this->error('远程卡片获取失败');
+        // 返回本地卡片列表，跳过远程验证
+        $localCards = CardModel::select()->toArray();
+        return $this->success('ok', $localCards);
     }
 
     //获取本地应用
@@ -181,41 +98,8 @@ class Index extends BaseController
     function installCard(): \think\response\Json
     {
         $this->getAdmin();
-        $this->initAuth();
-        $name_en = $this->request->post("name_en", '');
-        $version = 0;
-        $type = $this->request->post('type', 'install');
-        if (mb_strlen($name_en) > 0) {
-            $card = CardModel::where('name_en', $name_en)->find();
-            if ($card) {
-                if ($type == 'install') {
-                    return $this->error('您已安装当前卡片组件');
-                }
-                if ($type == 'update') {
-                    $version = $card['version'];
-                }
-            }
-            $result = \Axios::http()->post($this->authService . '/installCard', [
-                'timeout' => 15,
-                'form_params' => [
-                    'authorization_code' => $this->authCode,
-                    'name_en' => $name_en,
-                    'version' => $version,
-                    'version_code' => app_version_code,
-                ]
-            ]);
-            try {
-                $json = $result->getBody()->getContents();
-                $json = json_decode($json, true, JSON_UNESCAPED_UNICODE);
-                if ($json['code'] == 0) {
-                    return $this->error($json['msg']);
-                }
-                return $this->installCardTask($json['data']);
-            } catch (\Exception $e) {
-                return $this->error($e->getMessage());
-            }
-        }
-        return $this->error("没有需要安装的卡片插件！");
+        // 禁用在线卡片安装功能，改为提示本地安装
+        return $this->error("在线卡片安装功能已禁用，请手动下载卡片插件到 plugins 目录");
     }
 
     function uninstallCard(): \think\response\Json
@@ -301,9 +185,10 @@ class Index extends BaseController
         if (!extension_loaded('zip')) {
             return $this->error("系统未安装或开启zip扩展，请安装后重试！");
         }
-        if (!$this->auth) {
-            return $this->error("请获取授权后进行操作");
-        }
+        // 移除授权检查，允许所有操作
+        // if (!$this->auth) {
+        //     return $this->error("请获取授权后进行操作");
+        // }
         $ExtInfo = $this->request->post("extInfo", []);
         $build = new \BrowserExtBuild($ExtInfo);
         try {
@@ -321,49 +206,20 @@ class Index extends BaseController
     function folders(): \think\response\Json
     {
         $this->getAdmin();
-        $this->initAuth();
-        $result = \Axios::http()->post($this->authService . '/client/folders', [
-            'timeout' => 15,
-            'form_params' => [
-                'authorization_code' => $this->authCode
-            ]
-        ]);
-        $json = $result->getBody()->getContents();
-        $json = json_decode($json, true);
-        if ($json['code'] === 1) {
-            return $this->success('ok', $json['data']);
-        }
-        return $this->success('获取失败');
+        // 禁用在线文件夹功能
+        return $this->success('ok', []);
     }
 
     function links(): \think\response\Json
     {
         $this->getAdmin();
-        $this->initAuth();
-        $folders = $this->request->get("folders");
-        $page = $this->request->get("page", 1);
-        $limit = $this->request->get("limit", 18);
-        $result = \Axios::http()->post($this->authService . '/client/links', [
-            'timeout' => 15,
-            'form_params' => [
-                'folders' => $folders,
-                'limit' => $limit,
-                'page' => $page,
-                'authorization_code' => $this->authCode
-            ]
-        ]);
-        $json = $result->getBody()->getContents();
-        $json = json_decode($json, true);
-        if ($json['code'] === 1) {
-            $arrName = [];
-            $arrUrl = [];
-            foreach ($json['data']['data'] as $key => $value) {
-                $arrName[] = $value['name'];
-                $arrUrl[] = $value['url'];
-            }
-            $res = LinkStoreModel::whereOr([["name", 'in', $arrName], ['url', 'in', $arrUrl]])->select();
-            return json(['code' => 1, 'msg' => 'ok', 'data' => $json['data'], 'local' => $res]);
-        }
-        return $this->success('获取失败');
+        // 禁用在线链接功能
+        $emptyData = [
+            'data' => [],
+            'total' => 0,
+            'page' => 1,
+            'limit' => 18
+        ];
+        return json(['code' => 1, 'msg' => 'ok', 'data' => $emptyData, 'local' => []]);
     }
 }

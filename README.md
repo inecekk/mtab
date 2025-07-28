@@ -1,8 +1,12 @@
-# mTab新标签页
+# mTab新标签页 - 无限制版本
 
 ![logo](https://raw.githubusercontent.com/tsxcw/imagesHouse/itushan/mTabReadme/192.png)
 
-### [mTab书签官网](https://mtab.cc) | [安装文档](https://mtab.cc/document.html)  | [作者Blog](https://blog.mcecy.com) | QQ群：694155153
+### 🎉 **完全免费无限制版本** - 已移除所有商业授权限制
+
+这是基于原版 mTab 的无限制修改版本，移除了所有付费功能的限制，所有功能完全免费使用。
+
+### [原版mTab书签官网](https://mtab.cc) | [原版安装文档](https://mtab.cc/document.html) | [原作者Blog](https://blog.mcecy.com)
 
 ![](https://raw.githubusercontent.com/tsxcw/imagesHouse/itushan/mTabReadme/1.png?x-image-process=image/resize,m_lfit,w_900)
 
@@ -31,39 +35,83 @@ Mtab书签的界面设计美观简洁，操作简单直观，让你可以专注�
 演示密码：123456
 
 
-## Docker部署方式
+## 🚀 快速部署方式
 
-镜像： itushan/mtab
+### Docker 部署（推荐）
 
-视频教程： https://www.bilibili.com/video/BV1ee411B7fY/
+**无限制版镜像：** `weiruchenai1/mtab:latest`
 
-部署命令： docker run -itd --name mtab -p 9200:80 -v /opt/mtab:/app itushan/mtab
+#### 一键部署命令：
+```bash
+docker run -itd --name mtab-unlimited -p 9200:80 -v /opt/mtab:/app weiruchenai1/mtab:latest
+```
 
-命令解释： 其中 9200 可改为你服务器的其他端口。 /opt/mtab 可改为是你服务器的目录挂载路径，容器内目录和端口必须是 80 和 /app，--name为自定义容器名称。
+#### 使用 docker-compose 部署：
+```bash
+# 克隆项目
+git clone https://github.com/weiruchenai1/mtab.git
+cd mtab
 
-可视化部署： 群晖等其他管理面板请拉取 itushan/mtab 镜像。服务器端口请自己填写，容器请填写 80 ，服务器目录请填写自己想挂载的目录，容器部分请填写 /app。
+# 启动服务
+docker-compose up -d
+```
 
-程序数据库安装： 部署完docker后访问您设置的端口，然后填写一些数据库配置后点击 安装 按钮即可等待安装完成， 注意的是容器部署下数据库地址请不要填写127.0.0.1,因为容器内127.0.0.1不指向宿主机网络。
-
-最后事项： 最后如果要使用外网访问，为了安全请使用Nginx反向代理或者CDN来代理您创建时填写的端口，并且配置SSL证书启用HTTPS，纯内网环境请随意啦。
-
-### docker-compose.yml
-
-在你想安装的目录创建docker-compose.yml，然后安装的目录执行`docker-compose  up -d `即可
-
+docker-compose.yml 配置：
 ```yml
 version: '3'
 services:
-  mtabServer:
-    image: itushan/mtab
-    container_name: mtabServer
-    user: "${USER_ID}:${GROUP_ID}"
+  mtab:
+    image: weiruchenai1/mtab:latest
+    container_name: mtab-unlimited
     ports:
       - "9200:80"
     volumes:
       - ./:/app
+    environment:
+      MYSQL_HOST: 172.17.0.1
+      MYSQL_USER: root
+      MYSQL_PORT: 3306
+      MYSQL_PASSWORD: 123456
+      MYSQL_DATABASE: mtab
+      ADMIN_USER: admin
+      ADMIN_PASSWORD: admin123
     restart: always
 ```
+
+### 服务器直接部署
+
+使用提供的一键部署脚本：
+```bash
+chmod +x deploy.sh
+sudo ./deploy.sh
+```
+
+### Windows 本地开发
+
+1. **使用 PhpStudy/XAMPP:**
+   - 下载项目代码
+   - 配置虚拟主机指向 `public` 目录
+   - 导入数据库文件
+
+2. **使用 PHP 内置服务器:**
+   ```bash
+   # 运行开发脚本
+   start-dev.bat
+   # 或手动启动
+   cd public && php -S localhost:8000
+   ```
+
+3. **使用 WSL2 环境:**
+   - 安装 Ubuntu on WSL2
+   - 配置 LNMP 环境
+   - 使用提供的 nginx 配置文件
+
+### 🎯 重要说明
+
+- ✅ **无需授权码** - 所有功能完全免费
+- ✅ **无付费限制** - 移除了所有商业限制
+- ✅ **完整功能** - 包含文件夹管理、卡片安装、链接管理等
+- ✅ **自动构建** - GitHub Actions 自动构建 Docker 镜像
 ## 预览图
 
 ![](https://raw.githubusercontent.com/tsxcw/imagesHouse/itushan/mTabReadme/1.png)
