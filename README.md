@@ -67,16 +67,13 @@ services:
       - "9200:80"
     volumes:
       - ./:/app
-    environment:
-      MYSQL_HOST: 172.17.0.1
-      MYSQL_USER: root
-      MYSQL_PORT: 3306
-      MYSQL_PASSWORD: 123456
-      MYSQL_DATABASE: mtab
-      ADMIN_USER: admin
-      ADMIN_PASSWORD: admin123
     restart: always
 ```
+
+**部署后初始化：**
+1. 访问 `http://localhost:9200` 
+2. 程序会自动引导你进行数据库配置
+3. 输入你的 MySQL 连接信息完成安装
 
 ### 服务器直接部署
 
