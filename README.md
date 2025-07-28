@@ -75,33 +75,19 @@ services:
 2. 程序会自动引导你进行数据库配置
 3. 输入你的 MySQL 连接信息完成安装
 
-### 服务器直接部署
+### 本地开发
 
-使用提供的一键部署脚本：
+**Windows 环境：**
 ```bash
-chmod +x deploy.sh
-sudo ./deploy.sh
+# 使用 PHP 内置服务器
+start-dev.bat
+# 或手动启动
+cd public && php -S localhost:8000
 ```
 
-### Windows 本地开发
-
-1. **使用 PhpStudy/XAMPP:**
-   - 下载项目代码
-   - 配置虚拟主机指向 `public` 目录
-   - 导入数据库文件
-
-2. **使用 PHP 内置服务器:**
-   ```bash
-   # 运行开发脚本
-   start-dev.bat
-   # 或手动启动
-   cd public && php -S localhost:8000
-   ```
-
-3. **使用 WSL2 环境:**
-   - 安装 Ubuntu on WSL2
-   - 配置 LNMP 环境
-   - 使用提供的 nginx 配置文件
+**其他环境：**
+- 配置 Web 服务器指向 `public` 目录
+- 通过 Web 界面配置数据库连接
 
 ### 🎯 重要说明
 
