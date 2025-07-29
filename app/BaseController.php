@@ -70,6 +70,15 @@ class BaseController
     {
         // 强制启用授权状态，移除授权码验证
         $this->auth = true;
+        
+        // 强制设置全局授权状态
+        $_SESSION['force_auth'] = true;
+        
+        // 设置响应头强制前端认为已授权
+        if (!headers_sent()) {
+            header('X-Auth-Status: authorized');
+            header('X-Force-Auth: true');
+        }
         if ($this->systemSetting("app_debug", '0') === '1') {
             $this->app->debug(true);
             Config::set([
