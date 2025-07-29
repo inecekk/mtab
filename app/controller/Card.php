@@ -4,27 +4,37 @@ namespace app\controller;
 
 use app\BaseController;
 use app\model\CardModel;
+use think\facade\Cache;
 
 class Card extends BaseController
 {
     function index(): \think\response\Json
     {
-        // 获取本地已安装并启用的卡片
-        $apps = CardModel::where('status', 1)->select()->toArray();
+        // 使用缓存机制，与管理员后台保持一致
+        $cacheKey = 'cardList';
+        $apps = Cache::get($cacheKey);
         
-        // 如果没有找到官方卡片，则添加默认的官方卡片
-        $officialCards = ['weather', 'todo', 'poetry', 'food', 'topSearch'];
-        $existingCards = array_column($apps, 'name_en');
-        
-        foreach ($officialCards as $cardId) {
-            if (!in_array($cardId, $existingCards)) {
-                // 添加缺失的官方卡片到数据库
-                $cardData = $this->getOfficialCardData($cardId);
-                if ($cardData) {
-                    CardModel::create($cardData);
-                    $apps[] = $cardData;
+        if ($apps === null) {
+            // 获取本地已安装并启用的卡片
+            $apps = CardModel::where('status', 1)->select()->toArray();
+            
+            // 如果没有找到官方卡片，则添加默认的官方卡片
+            $officialCards = ['weather', 'todo', 'poetry', 'food', 'topSearch'];
+            $existingCards = array_column($apps, 'name_en');
+            
+            foreach ($officialCards as $cardId) {
+                if (!in_array($cardId, $existingCards)) {
+                    // 添加缺失的官方卡片到数据库
+                    $cardData = $this->getOfficialCardData($cardId);
+                    if ($cardData) {
+                        CardModel::create($cardData);
+                        $apps[] = $cardData;
+                    }
                 }
             }
+            
+            // 缓存结果，过期时间1小时
+            Cache::set($cacheKey, $apps, 3600);
         }
         
         return $this->success('ok', $apps);
