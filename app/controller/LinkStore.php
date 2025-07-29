@@ -64,7 +64,8 @@ class LinkStore extends BaseController
             $list = $list->whereRaw('find_in_set(?,group_ids)', [$group_id]);
         }
         $list = $list->order($this->request->post('sort.prop', 'id'), $this->request->post('sort.order', 'asc'))->paginate($limit);
-        return json(["msg" => "ok", 'data' => $list, 'auth' => $this->auth]);
+        // 强制设置授权为true，移除付费限制
+        return json(["msg" => "ok", 'data' => $list, 'auth' => true]);
     }
 
     function getFolder(): \think\response\Json

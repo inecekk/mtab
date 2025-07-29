@@ -241,4 +241,145 @@ class Admin extends BaseController
         repair::repair();
         return $this->success("修复完毕");
     }
+
+    // 上传卡片安装包
+    function uploadCard(): \think\response\Json
+    {
+        $this->getAdmin();
+        is_demo_mode(true);
+        
+        $uploadFile = request()->file('file');
+        if (!$uploadFile) {
+            return $this->error('请选择要上传的文件');
+        }
+        
+        // 检查文件类型
+        $ext = $uploadFile->getOriginalExtension();
+        if ($ext !== 'zip') {
+            return $this->error('只支持 zip 格式的卡片安装包');
+        }
+        
+        // 创建临时目录
+        $tempDir = root_path() . 'runtime/temp/' . date('YmdHis') . '/';
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+        
+        try {
+            // 移动上传文件到临时目录
+            $uploadFile->move($tempDir, 'card.zip');
+            $zipFile = $tempDir . 'card.zip';
+            
+            // 解压文件
+            $zip = new \ZipArchive();
+            if ($zip->open($zipFile) === TRUE) {
+                $zip->extractTo($tempDir . 'extracted/');
+                $zip->close();
+                
+                // 查找 info.json 文件
+                $infoFile = $tempDir . 'extracted/info.json';
+                if (!file_exists($infoFile)) {
+                    throw new \Exception('卡片安装包中未找到 info.json 配置文件');
+                }
+                
+                // 读取卡片信息
+                $cardInfo = json_decode(file_get_contents($infoFile), true);
+                if (!$cardInfo || !isset($cardInfo['name_en'])) {
+                    throw new \Exception('info.json 格式错误');
+                }
+                
+                $cardName = $cardInfo['name_en'];
+                $pluginsDir = root_path() . 'plugins/' . $cardName . '/';
+                
+                // 创建插件目录
+                if (!is_dir($pluginsDir)) {
+                    mkdir($pluginsDir, 0755, true);
+                }
+                
+                // 复制文件到插件目录
+                $this->copyDirectory($tempDir . 'extracted/', $pluginsDir);
+                
+                // 清理临时文件
+                $this->deleteDirectory($tempDir);
+                
+                // 安装卡片到数据库
+                $data = [
+                    'name' => $cardInfo['name'],
+                    'name_en' => $cardInfo['name_en'],
+                    'version' => $cardInfo['version'] ?? '1.0.0',
+                    'tips' => $cardInfo['tips'] ?? '',
+                    'src' => $cardInfo['src'] ?? '',
+                    'url' => $cardInfo['url'] ?? '',
+                    'window' => $cardInfo['window'] ?? 0,
+                ];
+                if (isset($cardInfo['setting'])) {
+                    $data['setting'] = $cardInfo['setting'];
+                }
+                
+                $find = \app\model\CardModel::where('name_en', $cardName)->find();
+                if ($find) {
+                    $find->force()->save($data);
+                } else {
+                    \app\model\CardModel::create($data);
+                }
+                
+                Cache::delete('cardList');
+                return $this->success('卡片安装成功', ['name' => $cardInfo['name'], 'name_en' => $cardName]);
+                
+            } else {
+                throw new \Exception('无法解压安装包');
+            }
+            
+        } catch (\Exception $e) {
+            // 清理临时文件
+            if (is_dir($tempDir)) {
+                $this->deleteDirectory($tempDir);
+            }
+            return $this->error('安装失败：' . $e->getMessage());
+        }
+    }
+
+    // 复制目录
+    private function copyDirectory($source, $destination) {
+        if (!is_dir($source)) {
+            return;
+        }
+        
+        if (!is_dir($destination)) {
+            mkdir($destination, 0755, true);
+        }
+        
+        $files = scandir($source);
+        foreach ($files as $file) {
+            if ($file != '.' && $file != '..') {
+                $sourcePath = $source . $file;
+                $destPath = $destination . $file;
+                
+                if (is_dir($sourcePath)) {
+                    $this->copyDirectory($sourcePath . '/', $destPath . '/');
+                } else {
+                    copy($sourcePath, $destPath);
+                }
+            }
+        }
+    }
+
+    // 删除目录
+    private function deleteDirectory($dir)
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $files = scandir($dir);
+        foreach ($files as $file) {
+            if ($file != '.' && $file != '..') {
+                if (is_dir("$dir/$file")) {
+                    $this->deleteDirectory("$dir/$file");
+                } else {
+                    unlink("$dir/$file");
+                }
+            }
+        }
+        rmdir($dir);
+    }
 }

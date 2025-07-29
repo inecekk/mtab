@@ -63,9 +63,56 @@ class Index extends BaseController
     function cardList(): \think\response\Json
     {
         $this->getAdmin();
-        // 返回本地卡片列表，跳过远程验证
+        // 移除授权限制，返回完整的卡片列表
         $localCards = CardModel::select()->toArray();
-        return $this->success('ok', $localCards);
+        
+        // 模拟官方卡片商店数据，移除付费限制
+        $officialCards = [
+            [
+                'id' => 'weather',
+                'name' => '天气预报',
+                'name_en' => 'weather',
+                'tips' => '实时天气预报小组件',
+                'version' => '1.0.0',
+                'src' => '/static/cards/weather.png',
+                'url' => '',
+                'window' => 0,
+                'status' => 1,
+                'install' => !in_array('weather', array_column($localCards, 'name_en')),
+                'official' => true
+            ],
+            [
+                'id' => 'todo',
+                'name' => '待办事项',
+                'name_en' => 'todo',
+                'tips' => '简单的待办事项管理',
+                'version' => '1.0.0',
+                'src' => '/static/cards/todo.png',
+                'url' => '',
+                'window' => 0,
+                'status' => 1,
+                'install' => !in_array('todo', array_column($localCards, 'name_en')),
+                'official' => true
+            ],
+            [
+                'id' => 'poetry',
+                'name' => '每日一诗',
+                'name_en' => 'poetry',
+                'tips' => '中国古诗词欣赏',
+                'version' => '1.0.0',
+                'src' => '/static/cards/poetry.png',
+                'url' => '',
+                'window' => 0,
+                'status' => 1,
+                'install' => !in_array('poetry', array_column($localCards, 'name_en')),
+                'official' => true
+            ]
+        ];
+        
+        // 合并本地卡片和官方卡片
+        $allCards = array_merge($localCards, $officialCards);
+        
+        return $this->success('ok', $allCards);
     }
 
     //获取本地应用
@@ -98,8 +145,99 @@ class Index extends BaseController
     function installCard(): \think\response\Json
     {
         $this->getAdmin();
-        // 禁用在线卡片安装功能，改为提示本地安装
-        return $this->error("在线卡片安装功能已禁用，请手动下载卡片插件到 plugins 目录");
+        is_demo_mode(true);
+        
+        // 支持本地卡片安装，移除授权限制
+        $name_en = $this->request->post("name_en", "");
+        $url = $this->request->post("url", "");
+        
+        if (empty($name_en)) {
+            return $this->error("卡片名称不能为空");
+        }
+        
+        // 定义官方卡片的基础数据
+        $officialCards = [
+            'weather' => [
+                'name' => '天气预报',
+                'name_en' => 'weather',
+                'tips' => '实时天气预报小组件',
+                'version' => '1.0.0',
+                'src' => '/static/cards/weather.png',
+                'url' => '/plugins/weather',
+                'window' => 0
+            ],
+            'todo' => [
+                'name' => '待办事项',
+                'name_en' => 'todo',
+                'tips' => '简单的待办事项管理',
+                'version' => '1.0.0',
+                'src' => '/static/cards/todo.png',
+                'url' => '/plugins/todo',
+                'window' => 0
+            ],
+            'poetry' => [
+                'name' => '每日一诗',
+                'name_en' => 'poetry',
+                'tips' => '中国古诗词欣赏',
+                'version' => '1.0.0',
+                'src' => '/static/cards/poetry.png',
+                'url' => '/plugins/poetry',
+                'window' => 0
+            ]
+        ];
+        
+        // 如果是官方卡片，直接安装
+        if (isset($officialCards[$name_en])) {
+            $data = $officialCards[$name_en];
+            $find = CardModel::where('name_en', $name_en)->find();
+            if ($find) {
+                $find->force()->save($data);
+            } else {
+                CardModel::create($data);
+            }
+            Cache::delete('cardList');
+            return $this->success("官方卡片安装成功");
+        }
+        
+        // 如果提供了URL，则从URL安装
+        if (!empty($url)) {
+            $info = [
+                'name_en' => $name_en,
+                'download' => $url
+            ];
+            return $this->installCardTask($info);
+        }
+        
+        // 检查本地 plugins 目录中是否存在该卡片
+        $pluginPath = root_path() . 'plugins/' . $name_en;
+        if (is_dir($pluginPath)) {
+            $config = $this->readCardInfo($name_en);
+            if ($config) {
+                $data = [
+                    'name' => $config['name'],
+                    'name_en' => $config['name_en'],
+                    'version' => $config['version'],
+                    'tips' => $config['tips'],
+                    'src' => $config['src'],
+                    'url' => $config['url'],
+                    'window' => $config['window'],
+                ];
+                if (isset($config['setting'])) {
+                    $data['setting'] = $config['setting'];
+                }
+                
+                $find = CardModel::where('name_en', $name_en)->find();
+                if ($find) {
+                    $find->force()->save($data);
+                } else {
+                    CardModel::create($data);
+                }
+                Cache::delete('cardList');
+                return $this->success("卡片安装成功");
+            }
+        }
+        
+        return $this->error("未找到卡片文件，请确保卡片已上传至 plugins/{$name_en} 目录");
     }
 
     function uninstallCard(): \think\response\Json
@@ -206,20 +344,39 @@ class Index extends BaseController
     function folders(): \think\response\Json
     {
         $this->getAdmin();
-        // 禁用在线文件夹功能
-        return $this->success('ok', []);
+        // 启用文件夹功能，移除授权限制
+        $folders = \app\model\LinkFolderModel::order('sort', 'desc')->select();
+        return $this->success('ok', $folders);
     }
 
     function links(): \think\response\Json
     {
         $this->getAdmin();
-        // 禁用在线链接功能
-        $emptyData = [
-            'data' => [],
-            'total' => 0,
-            'page' => 1,
-            'limit' => 18
+        // 启用本地链接功能，移除授权限制
+        $folders = $this->request->param('folders', 0);
+        $page = $this->request->param('page', 1);
+        $limit = $this->request->param('limit', 18);
+        
+        $sql = ['status' => 1];
+        if ($folders && $folders > 0) {
+            $sql[] = ['area', 'like', "%$folders%"];
+        }
+        
+        $linkStore = new \app\model\LinkStoreModel();
+        $list = $linkStore->where($sql)
+            ->order('hot', 'desc')
+            ->page($page, $limit)
+            ->select();
+            
+        $total = $linkStore->where($sql)->count();
+        
+        $data = [
+            'data' => $list,
+            'total' => $total,
+            'current_page' => $page,
+            'per_page' => $limit
         ];
-        return json(['code' => 1, 'msg' => 'ok', 'data' => $emptyData, 'local' => []]);
+        
+        return json(['code' => 1, 'msg' => 'ok', 'data' => $data, 'local' => []]);
     }
 }

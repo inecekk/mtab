@@ -7,6 +7,7 @@ Route::any('/manager', 'index/index');
 Route::any("/privacy", "index/privacy");
 Route::any('/noteApp', "index/index");
 Route::any("/api/background$", "api/background");
+Route::post("/admin/uploadCard", "admin/uploadCard");
 Route::any("/qq_login$", "user/qq_login");
 Route::any("/favicon", "index/favicon");
 Route::get("/plugins/:dir/static/[:file]", "\PluginStaticSystem@index")->pattern(['dir' => '\w+', 'file' => '[\w||\s\-].*']); //插件静态资源路由文件
