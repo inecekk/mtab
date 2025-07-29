@@ -106,6 +106,32 @@ class Index extends BaseController
                 'status' => 1,
                 'install' => !in_array('poetry', array_column($localCards, 'name_en')),
                 'official' => true
+            ],
+            [
+                'id' => 'food',
+                'name' => '今天吃什么',
+                'name_en' => 'food',
+                'tips' => '随机推荐今日美食',
+                'version' => '1.0.0',
+                'src' => '/static/cards/food.png',
+                'url' => '',
+                'window' => 0,
+                'status' => 1,
+                'install' => !in_array('food', array_column($localCards, 'name_en')),
+                'official' => true
+            ],
+            [
+                'id' => 'topSearch',
+                'name' => '热搜榜',
+                'name_en' => 'topSearch',
+                'tips' => '实时热搜排行榜',
+                'version' => '1.0.0',
+                'src' => '/static/cards/topsearch.png',
+                'url' => '',
+                'window' => 0,
+                'status' => 1,
+                'install' => !in_array('topSearch', array_column($localCards, 'name_en')),
+                'official' => true
             ]
         ];
         
@@ -183,12 +209,31 @@ class Index extends BaseController
                 'src' => '/static/cards/poetry.png',
                 'url' => '/plugins/poetry',
                 'window' => 0
+            ],
+            'food' => [
+                'name' => '今天吃什么',
+                'name_en' => 'food',
+                'tips' => '随机推荐今日美食',
+                'version' => '1.0.0',
+                'src' => '/static/cards/food.png',
+                'url' => '/plugins/food',
+                'window' => 0
+            ],
+            'topSearch' => [
+                'name' => '热搜榜',
+                'name_en' => 'topSearch',
+                'tips' => '实时热搜排行榜',
+                'version' => '1.0.0',
+                'src' => '/static/cards/topsearch.png',
+                'url' => '/plugins/topSearch',
+                'window' => 0
             ]
         ];
         
         // 如果是官方卡片，直接安装
         if (isset($officialCards[$name_en])) {
             $data = $officialCards[$name_en];
+            $data['status'] = 1; // 确保状态为启用
             $find = CardModel::where('name_en', $name_en)->find();
             if ($find) {
                 $find->force()->save($data);
@@ -313,6 +358,117 @@ class Index extends BaseController
             return $this->error($state);
         }
         abort(0, "新版本没有提供下载地址！");
+    }
+
+    function uploadCard(): \think\response\Json
+    {
+        $this->getAdmin();
+        is_demo_mode(true);
+        
+        // 移除授权检查，允许上传操作
+        $file = request()->file('file');
+        if (!$file) {
+            return $this->error('请选择要上传的文件');
+        }
+        
+        // 检查文件扩展名
+        if ($file->getOriginalExtension() !== 'zip') {
+            return $this->error('只允许上传zip格式的文件');
+        }
+        
+        try {
+            // 保存上传的文件
+            $saveName = $file->move(root_path() . 'runtime/upload/', time() . '.zip');
+            if (!$saveName) {
+                return $this->error('文件上传失败');
+            }
+            
+            $filePath = root_path() . 'runtime/upload/' . $saveName;
+            
+            // 解压文件
+            $zip = new \ZipArchive();
+            if ($zip->open($filePath) !== TRUE) {
+                @unlink($filePath);
+                return $this->error('无法打开zip文件');
+            }
+            
+            // 获取zip文件中的第一个文件夹名称作为插件名称
+            $pluginName = '';
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $filename = $zip->getNameIndex($i);
+                if (strpos($filename, '/') !== false) {
+                    $pluginName = substr($filename, 0, strpos($filename, '/'));
+                    break;
+                }
+            }
+            
+            if (!$pluginName) {
+                $zip->close();
+                @unlink($filePath);
+                return $this->error('无效的插件包格式');
+            }
+            
+            // 解压到plugins目录
+            $extractPath = root_path() . 'plugins/';
+            if (!$zip->extractTo($extractPath)) {
+                $zip->close();
+                @unlink($filePath);
+                return $this->error('解压失败');
+            }
+            
+            $zip->close();
+            @unlink($filePath);
+            
+            // 读取插件信息
+            $infoFile = $extractPath . $pluginName . '/info.json';
+            if (!file_exists($infoFile)) {
+                return $this->error('插件信息文件不存在');
+            }
+            
+            $info = json_decode(file_get_contents($infoFile), true);
+            if (!$info) {
+                return $this->error('无法解析插件信息');
+            }
+            
+            // 检查必要字段
+            $requiredFields = ['name', 'name_en', 'version', 'tips'];
+            foreach ($requiredFields as $field) {
+                if (!isset($info[$field]) || empty($info[$field])) {
+                    return $this->error("插件信息缺少必要字段: {$field}");
+                }
+            }
+            
+            // 保存到数据库
+            $data = [
+                'name' => $info['name'],
+                'name_en' => $info['name_en'],
+                'version' => $info['version'],
+                'tips' => $info['tips'],
+                'src' => $info['src'] ?? '/static/cards/default.png',
+                'url' => $info['url'] ?? '/plugins/' . $pluginName,
+                'window' => $info['window'] ?? 0,
+                'status' => 1
+            ];
+            
+            if (isset($info['setting'])) {
+                $data['setting'] = $info['setting'];
+            }
+            
+            // 检查是否已存在
+            $existing = CardModel::where('name_en', $info['name_en'])->find();
+            if ($existing) {
+                $existing->force()->save($data);
+            } else {
+                CardModel::create($data);
+            }
+            
+            Cache::delete('cardList');
+            
+            return $this->success('插件上传安装成功！');
+            
+        } catch (\Exception $e) {
+            return $this->error('上传处理失败: ' . $e->getMessage());
+        }
     }
 
     //打包扩展
