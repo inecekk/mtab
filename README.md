@@ -39,18 +39,9 @@ Mtab书签的界面设计美观简洁，操作简单直观，让你可以专注�
 
 ### Docker 部署（推荐）
 
-**无限制版镜像：** `ghcr.io/inecekk/mtab:latest`
-
 #### 一键部署命令：
-```bash
-docker run -itd --name mtab-unlimited -p 9200:80 -v /opt/mtab:/app ghcr.io/inecekk/mtab:latest
-```
+mkdir -p /opt/1panel/apps/mtab/data && cd /opt/1panel/apps/mtab && git clone https://github.com/inecekk/mtab.git . && sed -i 's|- \./|- /opt/1panel/apps/mtab/data/|g' docker-compose.yml && docker-compose up -d
 
-#### 使用 docker-compose 部署：
-```bash
-# 克隆项目
-git clone https://github.com/inecekk/mtab.git
-cd mtab
 
 # 启动服务
 docker-compose up -d
