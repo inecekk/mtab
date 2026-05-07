@@ -50,7 +50,13 @@ services:
       - '9200:80'
     volumes:
       - /opt/1panel/apps/mtab/data:/app
-    restart: always" > docker-compose.yml && chmod -R 777 data && docker compose up -d --build
+    networks:
+      - 1panel-network
+    restart: always
+
+networks:
+  1panel-network:
+    external: true" > docker-compose.yml && chmod -R 777 data && docker compose up -d --build
 ```
 ### 本地开发
 
