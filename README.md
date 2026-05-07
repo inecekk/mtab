@@ -49,7 +49,7 @@ docker run -itd --name mtab-unlimited -p 9200:80 -v /opt/mtab:/app ghcr.io/weiru
 #### 使用 docker-compose 部署：
 ```bash
 # 克隆项目
-git clone https://github.com/weiruchenai1/mtab.git
+git clone https://github.com/inecekk/mtab.git
 cd mtab
 
 # 启动服务
@@ -61,7 +61,7 @@ docker-compose.yml 配置：
 version: '3'
 services:
   mtab:
-    image: ghcr.io/weiruchenai1/mtab:latest
+    image: ghcr.io/inecekk/mtab:latest
     container_name: mtab-unlimited
     ports:
       - "9200:80"
