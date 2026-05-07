@@ -40,6 +40,7 @@ Mtab书签的界面设计美观简洁，操作简单直观，让你可以专注�
 ### Docker 部署（推荐）
 
 #### 一键部署命令：
+```
 mkdir -p /opt/1panel/apps/mtab/data && cd /opt/1panel/apps/mtab && git clone https://github.com/inecekk/mtab.git . && sed -i 's|- \./|- /opt/1panel/apps/mtab/data/|g' docker-compose.yml && docker-compose up -d
 ```
 
