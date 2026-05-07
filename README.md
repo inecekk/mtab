@@ -41,36 +41,17 @@ Mtab书签的界面设计美观简洁，操作简单直观，让你可以专注�
 
 #### 一键部署命令：
 ```
-mkdir -p /opt/1panel/apps/mtab/data && cd /opt/1panel/apps/mtab && \
-git clone https://github.com/inecekk/mtab.git . && \
-sed -i 's|- \./|- /opt/1panel/apps/mtab/data/|g' docker-compose.yml && \
-docker-compose up -d
-```
-
-
-# 启动服务
-docker-compose up -d
-```
-
-docker-compose.yml 配置：
-```yml
-version: '3'
+cd /opt && rm -rf /opt/1panel/apps/mtab && git clone https://github.com/inecekk/mtab.git /opt/1panel/apps/mtab && cd /opt/1panel/apps/mtab && mkdir -p data && echo "version: '3'
 services:
   mtab:
-    image: ghcr.io/inecekk/mtab:latest
+    build: .
     container_name: mtab-unlimited
     ports:
-      - "9200:80"
+      - '9200:80'
     volumes:
-      - ./:/app
-    restart: always
+      - /opt/1panel/apps/mtab/data:/app
+    restart: always" > docker-compose.yml && chmod -R 777 data && docker compose up -d --build
 ```
-
-**部署后初始化：**
-1. 访问 `http://localhost:9200` 
-2. 程序会自动引导你进行数据库配置
-3. 输入你的 MySQL 连接信息完成安装
-
 ### 本地开发
 
 **Windows 环境：**
