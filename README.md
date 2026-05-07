@@ -39,11 +39,11 @@ Mtab书签的界面设计美观简洁，操作简单直观，让你可以专注�
 
 ### Docker 部署（推荐）
 
-**无限制版镜像：** `ghcr.io/weiruchenai1/mtab:latest`
+**无限制版镜像：** `ghcr.io/inecekk/mtab:latest`
 
 #### 一键部署命令：
 ```bash
-docker run -itd --name mtab-unlimited -p 9200:80 -v /opt/mtab:/app ghcr.io/weiruchenai1/mtab:latest
+docker run -itd --name mtab-unlimited -p 9200:80 -v /opt/mtab:/app ghcr.io/inecekk/mtab:latest
 ```
 
 #### 使用 docker-compose 部署：
