@@ -82,6 +82,16 @@ class Install
         return $conn;
     }
 
+    private function quoteIdentifier(mysqli $conn, string $identifier): string
+    {
+        return '`' . str_replace('`', '``', $identifier) . '`';
+    }
+
+    private function envValue($value): string
+    {
+        return str_replace(["\r", "\n"], '', (string)$value);
+    }
+
     function ext()
     {
         $phpVersion = phpversion();
@@ -143,9 +153,10 @@ class Install
             return $this->json(['code' => 500, 'msg' => $e->getMessage()]);
         }
         if ($database_type == 1) { //全新安装
-            $sql = "DROP DATABASE $table_name"; //删除原来的
+            $databaseName = $this->quoteIdentifier($conn, $table_name);
+            $sql = "DROP DATABASE IF EXISTS $databaseName"; //删除原来的
             $conn->query($sql);
-            $sql = "CREATE DATABASE $table_name"; //创建新的
+            $sql = "CREATE DATABASE $databaseName"; //创建新的
             if ($conn->query($sql) !== TRUE) {
                 return $this->json(['code' => 500, 'msg' => '数据表创建失败']);
             }
@@ -175,15 +186,24 @@ class Install
                     }
                 }
             }
-            $admin_password = md5($admin_password);
+            $admin_password = password_hash($admin_password, PASSWORD_DEFAULT);
             //添加默认管理员
-            $AdminSql = ("
-                    INSERT INTO user (mail, password, create_time, login_ip, register_ip, manager, login_fail_count, login_time)
-                    VALUES ('$admin_email', '$admin_password', null, null, null, 1, DEFAULT, null);
-                 ");
-            $conn->query($AdminSql);
+            $stmt = $conn->prepare("
+                INSERT INTO user (mail, password, create_time, login_ip, register_ip, manager, login_fail_count, login_time)
+                VALUES (?, ?, null, null, null, 1, DEFAULT, null)
+            ");
+            if ($stmt) {
+                $stmt->bind_param('ss', $admin_email, $admin_password);
+                $stmt->execute();
+                $stmt->close();
+            }
             $conn->close();
         }
+        $db_host = $this->envValue($db_host);
+        $table_name = $this->envValue($table_name);
+        $db_username = $this->envValue($db_username);
+        $db_password = $this->envValue($db_password);
+        $db_port = $this->envValue($db_port);
         $env = <<<EOF
                 APP_DEBUG = false
                 

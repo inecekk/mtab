@@ -31,7 +31,7 @@ class repass extends Command
         if ($user && $pass) {
             $info = UserModel::where('mail', $user)->find();
             if ($info) {
-                $info->password = md5($pass);
+                $info->password = hashUserPassword($pass);
                 $info->save();
                 print_r("\033[1;31m账户密码重置完毕\033[0m\n\r\033[1;42m请使用新的密码登录\033[0m\n");
             } else {

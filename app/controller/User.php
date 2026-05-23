@@ -39,10 +39,13 @@ class User extends BaseController
             $info->save();
             return $this->error('账号已被锁定2小时');
         }
-        if ($info['password'] != md5($pass)) {
+        if (!verifyUserPassword($pass, (string)$info['password'])) {
             $info->login_fail_count += 1;
             $info->save();
             return $this->error('账号不存在或密码错误');
+        }
+        if (shouldRehashUserPassword((string)$info['password'])) {
+            $info->password = hashUserPassword($pass);
         }
         if ($info['status'] === 1) {
             return $this->error('账号已被冻结');
@@ -96,7 +99,7 @@ class User extends BaseController
             if (UserModel::where('mail', $user)->field('id,mail')->find()) {
                 return $this->error('账号已存在');
             }
-            $add = UserModel::insert(['mail' => $user, 'password' => md5($pass), 'create_time' => date('Y-m-d H:i:s'), 'register_ip' => getRealIp()]);
+            $add = UserModel::insert(['mail' => $user, 'password' => hashUserPassword($pass), 'create_time' => date('Y-m-d H:i:s'), 'register_ip' => getRealIp()]);
             if ($add) {
                 Cache::delete('code' . $user);
                 return $this->success('ok');
@@ -125,7 +128,7 @@ class User extends BaseController
             }
             $cacheCode = Cache::get('code' . $user);
             if ($cacheCode && $cacheCode == $code) {
-                $info->password = md5($pass);
+                $info->password = hashUserPassword($pass);
                 $add = $info->save();
                 if ($add) {
                     TokenModel::where('user_id', $info['id'])->delete(); //删除所有登录记录
@@ -228,7 +231,7 @@ class User extends BaseController
         $type = $this->request->get('type', '');
         $query = [
             'redirect_uri' => $callback,
-            'state' => md5(uniqid()),
+            'state' => renderToken(),
             'response_type' => 'code',
             'scope' => 'get_user_info,list_album,upload_pic',
             'client_id' => $appId
@@ -245,7 +248,7 @@ class User extends BaseController
         $appId = SettingModel::Config('qq_login_appid', false);
         $code = $this->request->get('code', false);
         $state = $this->request->get('state');
-        if (strpos($state, 'bind')) {
+        if (strpos($state, 'bind') !== false) {
             //绑定模式
             $this->qq_bind_mode = true;
         }
@@ -295,7 +298,7 @@ class User extends BaseController
                 }
                 $info = UserModel::where('qq_open_id', $openid)->find();
                 if (!$info) { //不存在就创建一个新用户,如果上一个步骤绑定成功的话，是不可能进入此步骤的
-                    UserModel::insert(['mail' => '', 'password' => md5(time()), 'create_time' => date('Y-m-d H:i:s'), 'register_ip' => getRealIp(), 'qq_open_id' => $openid]);
+                    UserModel::insert(['mail' => '', 'password' => hashUserPassword(renderToken()), 'create_time' => date('Y-m-d H:i:s'), 'register_ip' => getRealIp(), 'qq_open_id' => $openid]);
                     $info = UserModel::where('qq_open_id', $openid)->find();
                     $this->getUserOpenInfo($access_token, $openid); //获取一些用户的默认信息
                 }

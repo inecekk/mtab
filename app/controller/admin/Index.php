@@ -176,9 +176,12 @@ class Index extends BaseController
         // 支持本地卡片安装，移除授权限制
         $name_en = $this->request->post("name_en", "");
         $url = $this->request->post("url", "");
-        
+
         if (empty($name_en)) {
             return $this->error("卡片名称不能为空");
+        }
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name_en)) {
+            return $this->error("卡片名称只能包含字母、数字、下划线和横线");
         }
         
         // 定义官方卡片的基础数据
@@ -291,6 +294,9 @@ class Index extends BaseController
         is_demo_mode(true);
         $name_en = $this->request->post("name_en");
         if ($name_en) {
+            if (!preg_match('/^[A-Za-z0-9_-]+$/', $name_en)) {
+                return $this->error("卡片名称不合法");
+            }
             $this->deleteDirectory(root_path() . 'plugins/' . $name_en);
             CardModel::where('name_en', $name_en)->delete();
             Cache::delete('cardList');
@@ -318,6 +324,9 @@ class Index extends BaseController
 
     private function readCardInfo($name_en)
     {
+        if (!preg_match('/^[A-Za-z0-9_-]+$/', $name_en)) {
+            return false;
+        }
         $file = root_path() . 'plugins/' . $name_en . '/info.json';
         $info = file_get_contents($file);
         try {
@@ -401,19 +410,19 @@ class Index extends BaseController
                     break;
                 }
             }
-            
-            if (!$pluginName) {
+
+            if (!$pluginName || !preg_match('/^[A-Za-z0-9_-]+$/', $pluginName)) {
                 $zip->close();
                 @unlink($filePath);
                 return $this->error('无效的插件包格式');
             }
-            
+
             // 解压到plugins目录
             $extractPath = root_path() . 'plugins/';
-            if (!$zip->extractTo($extractPath)) {
+            if (!safeExtractZip($zip, $extractPath, ['sh', 'bat', 'cmd', 'exe', 'dll'])) {
                 $zip->close();
                 @unlink($filePath);
-                return $this->error('解压失败');
+                return $this->error('插件包包含不安全的文件路径或文件类型');
             }
             
             $zip->close();

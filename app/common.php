@@ -15,7 +15,11 @@ function validateEmail($email): bool
 
 function uuid(): string
 {
-    $chars = md5(uniqid(mt_rand(), true));
+    try {
+        $chars = bin2hex(random_bytes(16));
+    } catch (Exception $e) {
+        $chars = md5(uniqid('', true));
+    }
     return substr($chars, 0, 8) . '-'
         . substr($chars, 8, 4) . '-'
         . substr($chars, 12, 4) . '-'
@@ -25,8 +29,35 @@ function uuid(): string
 
 function renderToken($t = 'tab'): string
 {
-    $s = uuid() . strval(time()) . $t;
-    return md5($s);
+    try {
+        return bin2hex(random_bytes(32));
+    } catch (Exception $e) {
+        return hash('sha256', uuid() . microtime(true) . $t);
+    }
+}
+
+function hashUserPassword(string $password): string
+{
+    return password_hash($password, PASSWORD_DEFAULT);
+}
+
+function verifyUserPassword(string $password, string $storedHash): bool
+{
+    if ($storedHash === '') {
+        return false;
+    }
+    if (password_get_info($storedHash)['algo'] !== 0) {
+        return password_verify($password, $storedHash);
+    }
+    return hash_equals($storedHash, md5($password));
+}
+
+function shouldRehashUserPassword(string $storedHash): bool
+{
+    if (password_get_info($storedHash)['algo'] === 0) {
+        return true;
+    }
+    return password_needs_rehash($storedHash, PASSWORD_DEFAULT);
 }
 
 function joinPath($path1, $path2='')
@@ -36,7 +67,8 @@ function joinPath($path1, $path2='')
 
 function getRealIp(): string
 {
-    $ip1 = request()->header('x-forwarded-for', false);
+    $trustProxy = function_exists('env') ? env('app.trust_proxy_headers', false) : false;
+    $ip1 = $trustProxy ? request()->header('x-forwarded-for', false) : false;
     if ($ip1) {
         $arr = explode(",", $ip1);
         if (count($arr) > 0) {
@@ -61,6 +93,44 @@ function is_demo_mode($is_exit = false)
 {
     // 禁用演示模式限制，允许所有操作
     return false;
+}
+
+function isSafeZipEntry(string $name): bool
+{
+    $name = str_replace('\\', '/', $name);
+    if ($name === '' || strpos($name, "\0") !== false) {
+        return false;
+    }
+    if ($name[0] === '/' || preg_match('/^[a-zA-Z]:\//', $name)) {
+        return false;
+    }
+    foreach (explode('/', $name) as $part) {
+        if ($part === '..') {
+            return false;
+        }
+    }
+    return true;
+}
+
+function safeExtractZip(\ZipArchive $zip, string $destination, array $blockedExtensions = []): bool
+{
+    $destination = rtrim($destination, "/\\") . DIRECTORY_SEPARATOR;
+    if (!is_dir($destination)) {
+        mkdir($destination, 0755, true);
+    }
+
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = $zip->getNameIndex($i);
+        if (!isSafeZipEntry($name)) {
+            return false;
+        }
+        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if ($extension && in_array($extension, $blockedExtensions, true)) {
+            return false;
+        }
+    }
+
+    return $zip->extractTo($destination);
 }
 
 function modifyImageUrls($htmlContent, $newBaseUrl): string

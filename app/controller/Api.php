@@ -383,13 +383,23 @@ class Api extends BaseController
             $limit = $maxSize < 1 ? ($maxSize * 1000) . 'KB' : ($maxSize) . 'MB';
             return $this->error("文件最大$limit,请压缩后再试");
         }
-        if (in_array(strtolower($file->getOriginalExtension()), ['png', 'jpg', 'jpeg', 'webp', 'ico', 'svg'])) {
+        $extension = strtolower($file->getOriginalExtension());
+        $allowedExtensions = ['png', 'jpg', 'jpeg', 'webp', 'ico', 'svg'];
+        $allowedMimeTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/svg+xml'];
+        $mimeType = $file->getMime();
+        if (in_array($extension, $allowedExtensions, true) && in_array($mimeType, $allowedMimeTypes, true)) {
+            if ($extension === 'svg') {
+                $svg = file_get_contents($file->getPathname());
+                if (preg_match('/<\s*script|on\w+\s*=|javascript:/i', $svg)) {
+                    return $this->error('SVG 文件包含不安全内容');
+                }
+            }
             // 验证文件并保存
             try {
                 // 构建保存路径
                 $savePath = '/images/' . date('Y/m/d');
                 $hash = Str::random(32);
-                $fileName = $hash . '.' . $file->getOriginalExtension();
+                $fileName = $hash . '.' . $extension;
                 $filePath = Filesystem::disk('images')->putFileAs($savePath, $file, $fileName);
                 $minPath = '';
                 if ($type == 'icon' || $type == 'avatar') {
@@ -432,12 +442,24 @@ class Api extends BaseController
         if ($file->getSize() > 1024 * 1024 * 8) {
             return $this->error('文件最大8MB,请压缩后再试');
         }
+        $extension = strtolower($file->getOriginalExtension());
+        $allowedExtensions = ['png', 'jpg', 'jpeg', 'webp', 'ico', 'svg'];
+        $allowedMimeTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/svg+xml'];
+        if (!in_array($extension, $allowedExtensions, true) || !in_array($file->getMime(), $allowedMimeTypes, true)) {
+            return $this->error('不支持的文件类型');
+        }
+        if ($extension === 'svg') {
+            $svg = file_get_contents($file->getPathname());
+            if (preg_match('/<\s*script|on\w+\s*=|javascript:/i', $svg)) {
+                return $this->error('SVG 文件包含不安全内容');
+            }
+        }
         // 验证文件并保存
         try {
             // 构建保存路径
             $savePath = '/images/' . date('Y/m/d');
             $hash = Str::random(32);
-            $fileName = $hash . '.' . $file->getOriginalExtension();
+            $fileName = $hash . '.' . $extension;
             $filePath = Filesystem::disk('images')->putFileAs($savePath, $file, $fileName);
             $cdn = $this->systemSetting('assets_host', '/', true);
             $path = FileModel::addFile($filePath, $user['user_id'] ?? null);

@@ -57,9 +57,9 @@ class Admin extends BaseController
         if (!$user) {
             $user = new UserModel();
         }
-        //如果字段中的password有内容则md5加密后保存
+        // 如果字段中的 password 有内容则加密后保存
         if (isset($data['password']) && mb_strlen($data['password']) > 0) {
-            $data['password'] = md5($data['password']);
+            $data['password'] = hashUserPassword($data['password']);
         } else {
             unset($data['password']);
         }
@@ -273,7 +273,10 @@ class Admin extends BaseController
             // 解压文件
             $zip = new \ZipArchive();
             if ($zip->open($zipFile) === TRUE) {
-                $zip->extractTo($tempDir . 'extracted/');
+                if (!safeExtractZip($zip, $tempDir . 'extracted/', ['sh', 'bat', 'cmd', 'exe', 'dll'])) {
+                    $zip->close();
+                    throw new \Exception('安装包包含不安全的文件路径或文件类型');
+                }
                 $zip->close();
                 
                 // 查找 info.json 文件
